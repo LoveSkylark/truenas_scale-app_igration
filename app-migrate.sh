@@ -11,7 +11,8 @@ fi
 APP_NAME="$1"
 NEW_APP_NAME="$2"
 
-# Check if Postgres DB exists
+# Check if Postgres DB exists 
+#TODO no idea if this will work in TRueNAS!!
 if ! $FORCE && psql -lqt | cut -d \| -f 1 | grep -qw $APP_NAME; then
     echo "App $APP_NAME is using a Postgres DB, this script can not move the databse connection."
     echo "You can run 'app-migrate.sh -f OLD NEW' to force the script to continue"
