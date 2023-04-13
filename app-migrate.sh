@@ -1,7 +1,5 @@
 #!/bin/bash
 
-#!/bin/bash
-
 # use app-migrate.sh [-f] OLD NEW
 
 FORCE=false
@@ -32,25 +30,32 @@ if [ -z "$OLD_DEPLOY" ] || [ -z "$NEW_DEPLOY" ]; then
     exit 1
 fi
 
-echo "OLD deploy name: $OLD_DEPLOY"
-echo "NEW deploy name: $NEW_DEPLOY"
+echo "OLD deploy name:"
+echo "$OLD_DEPLOY"
+echo "NEW deploy name:"
+echo "$NEW_DEPLOY"
+echo ""
 
 # Scale down both apps
 echo "Scaling down both apps"
 k3s kubectl scale deploy $OLD_DEPLOY -n ix-$APP_NAME --replicas=0
-k3s kubectl scale deploy $APP_NAME -n ix-$APP_NAME --replicas=0
+k3s kubectl scale deploy $NEW_DEPLOY -n ix-$NEW_APP_NAME --replicas=0
+echo ""
 
 # Get the PVCs names and paths
-OLD_PVCS=$(k3s kubectl get pvc -n ix-$APP_NAME | grep -v postgres | grep -v redis | grep -v cnpg | awk '{print $1}')
-NEW_PVCS=$(k3s kubectl get pvc -n ix-$NEW_APP_NAME | grep -v postgres | grep -v redis | grep -v cnpg | awk '{print $1}')
+OLD_PVCS=$(k3s kubectl get pvc -n ix-$APP_NAME | grep -v postgres | grep -v redis | grep -v cnpg | grep -v NAME | awk '{print $1}')
+NEW_PVCS=$(k3s kubectl get pvc -n ix-$NEW_APP_NAME | grep -v postgres | grep -v redis | grep -v cnpg | grep -v NAME | awk '{print $1}')
 
 if [ -z "$OLD_PVCS" ] || [ -z "$NEW_PVCS" ]; then
     echo "Failed to retrieve PVC names and paths"
     exit 1
 fi
 
-echo "OLD PVCs: $OLD_PVCS"
-echo "NEW PVCs: $NEW_PVCS"
+echo "OLD PVCs:"
+echo "$OLD_PVCS"
+echo "NEW PVCs:"
+echo "$NEW_PVCS"
+echo ""
 
 OLD_PVC_PATH=$(zfs list | grep pvc | grep legacy | grep $APP_NAME | awk '{print $1}')
 NEW_PVC_PATH=$(zfs list | grep pvc | grep legacy | grep $NEW_APP_NAME | awk '{print $1}')
@@ -60,8 +65,13 @@ if [ -z "$OLD_PVC_PATH" ] || [ -z "$NEW_PVC_PATH" ]; then
     exit 1
 fi
 
-echo "OLD PVC path: $OLD_PVC_PATH"
-echo "NEW PVC path: $NEW_PVC_PATH"
+echo "OLD PVC path:"
+echo "$OLD_PVC_PATH"
+echo "NEW PVC path:"
+echo "$NEW_PVC_PATH"
+echo ""
+
+exit 0
 
 # Destroy new PVCs and copy over old PVCs
 echo "Destroying new PVCs and copying over old PVCs"
@@ -78,10 +88,18 @@ for pvc in $OLD_PVCS; do
     echo "Setting mountpoint to legacy for NEW PVC: $NEW_PVC_PATH/$pvc"
     zfs set mountpoint=legacy $NEW_PVC_PATH/$pvc
 done
+echo ""
 
 # Scale up both apps
 echo "Scaling up both apps"
 k3s kubectl scale deploy $OLD_DEPLOY -n ix-$APP_NAME --replicas=1
-k3s kubectl scale deploy $APP_NAME -n ix-$APP_NAME --replicas=1
+k3s kubectl scale deploy $NEW_DEPLOY -n ix-$NEW_APP_NAME --replicas=1
+echo ""
 
-echo "Migration completed successfully"
+# Wait for both apps to be ready
+echo "Waiting for both apps to be ready"
+k3s kubectl rollout status deploy/$OLD_DEPLOY -n ix-$APP_NAME
+k3s kubectl rollout status deploy/$NEW_DEPLOY -n ix-$NEW_APP_NAME
+echo ""
+
+echo "Migration completed successfully!"
