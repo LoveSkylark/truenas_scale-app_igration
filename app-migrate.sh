@@ -1,7 +1,5 @@
 #!/bin/bash
 
-#!/bin/bash
-
 # use app-migrate.sh [-f] OLD NEW
 
 FORCE=false
