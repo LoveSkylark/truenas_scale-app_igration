@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#!/bin/bash
+
 # use app-migrate.sh [-f] OLD NEW
 
 FORCE=false
@@ -11,10 +13,12 @@ fi
 APP_NAME="$1"
 NEW_APP_NAME="$2"
 
-# Check if Postgres DB exists 
-#TODO no idea if this will work in TRueNAS!!
-if ! $FORCE && psql -lqt | cut -d \| -f 1 | grep -qw $APP_NAME; then
-    echo "App $APP_NAME is using a Postgres DB, this script can not move the databse connection."
+# Get namespaces that contain dbcreds or cnpg-main-urls secrets
+namespaces=$(k3s kubectl get secrets -A | grep -E "dbcreds|cnpg-main-urls" | awk '{print $1}')
+
+# Check if the app is using Postgres by looking for its namespace in the list of namespaces
+if ! $FORCE && echo "$namespaces" | grep -qw "ix-$APP_NAME"; then
+    echo "App $APP_NAME is using a Postgres DB, this script can not move the database connection."
     echo "You can run 'app-migrate.sh -f OLD NEW' to force the script to continue"
     exit 0
 fi
